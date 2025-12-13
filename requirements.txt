@@ -6,3 +6,6 @@ google-generativeai
 PyPDF2
 pydantic
 multipart
+sentence-transformers
+torch
+groq

@@ -1,3 +1,4 @@
+import os
 import hashlib
 import uuid
 from io import BytesIO
@@ -7,9 +8,28 @@ from fastapi import UploadFile, HTTPException
 from PyPDF2 import PdfReader
 
 import google.generativeai as genai
-from rate_limiter import api_rate_limiter
 
-from config import collection, llm_model, EMBED_MODEL_NAME
+from rate_limiter import api_rate_limiter
+from embedding_cache import get_cached_embedding, cache_embedding
+from config import collection, groq_client, GROQ_MODEL_NAME, EMBED_MODEL_NAME
+
+# Optional local embedding support (sentence-transformers)
+USE_LOCAL_EMBEDDINGS = os.getenv("USE_LOCAL_EMBEDDINGS", "false").lower() in ("1", "true", "yes")
+LOCAL_EMBED_MODEL_NAME = os.getenv("LOCAL_EMBED_MODEL_NAME", "all-MiniLM-L6-v2")
+_local_encoder = None
+_local_embed_dim = None
+
+if USE_LOCAL_EMBEDDINGS:
+    try:
+        from sentence_transformers import SentenceTransformer
+        _local_encoder = SentenceTransformer(LOCAL_EMBED_MODEL_NAME)
+        # Get the embedding dimension from the model
+        _local_embed_dim = _local_encoder.get_sentence_embedding_dimension()
+        print(f"✓ Local embedding enabled using '{LOCAL_EMBED_MODEL_NAME}' (dim={_local_embed_dim})")
+    except Exception as e:
+        print(f"✗ Failed to load local sentence-transformers model: {e}")
+        _local_encoder = None
+        _local_embed_dim = None
 
 
 # ------------- basic text helpers -------------
@@ -62,24 +82,88 @@ def chunk_text(text: str, chunk_size: int = 1000, overlap: int = 200) -> List[st
     return chunks
 
 
+# ------------- local embedding helper -------------
+
+def _local_embed_batch(texts: List[str]) -> List[List[float]]:
+    if not _local_encoder:
+        raise RuntimeError("Local encoder not available")
+    # SentenceTransformer.encode() returns a numpy array of shape (n_texts, embedding_dim)
+    # Always returns 2D array even for single text: (1, dim) or (n, dim)
+    embs = _local_encoder.encode(texts, convert_to_numpy=True)
+    # Convert numpy array to list of lists - iterate over first dimension (rows)
+    return [emb.tolist() for emb in embs]
+
+
 # ------------- embeddings -------------
 
 def embed_texts(texts: List[str], task_type: str = "retrieval_document") -> List[List[float]]:
-    embeddings = []
-    for t in texts:
+    """Embed a list of texts. Uses cache, local encoder (if enabled) or Gemini otherwise.
+
+    Behavior changes made to reduce Gemini API usage:
+    - Check local cache first per text (no API call)
+    - If USE_LOCAL_EMBEDDINGS=True and a local model is available, use it for all uncached texts
+    - Otherwise fall back to genai.embed_content for each uncached text (rate-limited)
+    """
+    embeddings: List[List[float]] = []
+    uncached_texts = []
+    uncached_indices = []
+
+    # Determine embedding dimension - use local if available, otherwise Gemini default (3072 for embedding-001)
+    using_local = USE_LOCAL_EMBEDDINGS and _local_encoder
+    embed_dim = _local_embed_dim if using_local else 3072
+    
+    # First pass: fill from cache where possible (only if dimension matches)
+    for i, t in enumerate(texts):
         if not t.strip():
-            embeddings.append([0.0] * 1536)
+            embeddings.append([0.0] * embed_dim)
             continue
 
+        cached = get_cached_embedding(t)
+        # Only use cached embedding if dimension matches current embedding model
+        if cached and len(cached) == embed_dim:
+            print(f"✓ Using cached embedding (no API call) for chunk {i}")
+            embeddings.append(cached)
+        else:
+            # placeholder to be filled later
+            embeddings.append(None)
+            uncached_texts.append(t)
+            uncached_indices.append(i)
+
+    # If no uncached texts, return
+    if not uncached_texts:
+        return embeddings
+
+    # If local embeddings are enabled, do a single batch local encode
+    if using_local:
+        try:
+            local_embs = _local_embed_batch(uncached_texts)
+            for idx, emb in zip(uncached_indices, local_embs):
+                embeddings[idx] = emb
+                cache_embedding(texts[idx], emb)
+            return embeddings
+        except Exception as e:
+            print(f"⚠️ Local embedding failed, falling back to Gemini: {e}")
+            # If local fails, switch to Gemini dimension (3072 for embedding-001)
+            embed_dim = 3072
+
+    # Otherwise fallback to genai per-text (rate-limited). We do one API call per uncached text.
+    for i, t in zip(uncached_indices, uncached_texts):
         api_rate_limiter.sync_wait_if_needed()
-        
-        from config import llm_client, EMBED_MODEL_NAME
-        resp = llm_client.embeddings.create(
-            model=EMBED_MODEL_NAME,
-            input=t
-        )
-        emb = resp.data[0].embedding
-        embeddings.append(emb)
+        try:
+            resp = genai.embed_content(
+                model=EMBED_MODEL_NAME,
+                content=t,
+                task_type=task_type,
+            )
+            emb = resp["embedding"] if isinstance(resp, dict) else resp.embedding
+            embeddings[i] = emb
+            cache_embedding(texts[i], emb)
+            print(f"✓ Fetched embedding from Gemini for chunk {i}")
+        except Exception as e:
+            print(f"✗ Failed to embed with Gemini for chunk {i}: {e}")
+            # Use Gemini dimension (3072 for embedding-001) for error case
+            embeddings[i] = [0.0] * 3072
+
     return embeddings
 
 
@@ -174,6 +258,7 @@ def retrieve_context(document_ids: List[str], question: str, k: int = 12) -> Lis
     if not document_ids:
         return []
 
+    # Embed the question (uses local encoder if enabled)
     query_embedding = embed_texts([question], task_type="retrieval_query")[0]
 
     where_filter = {"document_id": {"$in": document_ids}}
@@ -217,17 +302,14 @@ Answer in {output_language}:
     return prompt
 
 
-def call_gemini(prompt: str) -> str:
-    api_rate_limiter.sync_wait_if_needed()
-    
-    from config import llm_client, LLM_MODEL_NAME
-    resp = llm_client.chat.completions.create(
-        model=LLM_MODEL_NAME,
+def call_llm(prompt: str) -> str:
+    """
+    Call Groq LLM to generate response. No rate limiting applied.
+    """
+    response = groq_client.chat.completions.create(
+        model=GROQ_MODEL_NAME,
         messages=[
-            {"role": "system", "content": "You are LegalEase, an AI-powered legal document assistant."},
             {"role": "user", "content": prompt}
         ],
-        temperature=0.7,
-        max_tokens=2000
     )
-    return resp.choices[0].message.content
+    return response.choices[0].message.content

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
 from models import RAGRequest, CompareRequest, GenericResponse
-from rag_utils import retrieve_context, build_legal_prompt, call_gemini
+from rag_utils import retrieve_context, build_legal_prompt, call_llm
 
 router = APIRouter(tags=["tasks"])
 
@@ -23,10 +23,10 @@ def simplify_document(payload: RAGRequest):
         context_chunks=context,
         output_language=payload.output_language or "English",
     )
-    answer = call_gemini(prompt)
+    answer = call_llm(prompt)
     return GenericResponse(
         result=answer,
-        note="Processing complete! (Rate limiting applied to prevent quota issues)"
+        note="Processing complete!"
     )
 
 
@@ -43,10 +43,10 @@ def summarize_document(payload: RAGRequest):
         context_chunks=context,
         output_language=payload.output_language or "English",
     )
-    answer = call_gemini(prompt)
+    answer = call_llm(prompt)
     return GenericResponse(
         result=answer,
-        note="Processing complete! (Rate limiting applied to prevent quota issues)"
+        note="Processing complete!"
     )
 
 
@@ -64,10 +64,10 @@ def extract_key_terms(payload: RAGRequest):
         context_chunks=context,
         output_language=payload.output_language or "English",
     )
-    answer = call_gemini(prompt)
+    answer = call_llm(prompt)
     return GenericResponse(
         result=answer,
-        note="Processing complete! (Rate limiting applied to prevent quota issues)"
+        note="Processing complete!"
     )
 
 
@@ -87,10 +87,10 @@ def risk_analysis(payload: RAGRequest):
         context_chunks=context,
         output_language=payload.output_language or "English",
     )
-    answer = call_gemini(prompt)
+    answer = call_llm(prompt)
     return GenericResponse(
         result=answer,
-        note="Processing complete! (Rate limiting applied to prevent quota issues)"
+        note="Processing complete!"
     )
 
 
@@ -113,8 +113,8 @@ def contract_comparison(payload: CompareRequest):
         context_chunks=context,
         output_language=payload.output_language or "English",
     )
-    answer = call_gemini(prompt)
+    answer = call_llm(prompt)
     return GenericResponse(
         result=answer,
-        note="Processing complete! (Rate limiting applied to prevent quota issues)"
+        note="Processing complete!"
     )
