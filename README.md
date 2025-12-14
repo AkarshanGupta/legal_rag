@@ -171,6 +171,14 @@ legal_rag/
 └── README.md
 ```
 
+
+## Output
+https://github.com/user-attachments/assets/be966d9d-eba7-4e23-b091-45efc4042931
+<img width="1919" height="386" alt="image" src="https://github.com/user-attachments/assets/632f072a-f05c-469f-89ad-82033dd42aec" />
+<img width="926" height="364" alt="Screenshot 2025-12-14 221314" src="https://github.com/user-attachments/assets/426a771f-45b6-416d-a30d-b881e0711a21" />
+
+
+
 ## 🔌 API Endpoints
 
 ### Health Check
