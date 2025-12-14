@@ -1,7 +1,6 @@
 import os
 from dotenv import load_dotenv
 
-import chromadb
 import google.generativeai as genai
 from groq import Groq
 
@@ -49,55 +48,48 @@ if not GROQ_API_KEY:
 groq_client = Groq(api_key=GROQ_API_KEY)
 GROQ_MODEL_NAME = "llama-3.3-70b-versatile"
 
-# ---------- Chroma Cloud client (v2 API) ----------
-print(f"Connecting to ChromaDB Cloud (v2 API)...")
-print(f"Tenant: {CHROMA_TENANT}")
-print(f"Database: '{CHROMA_DATABASE}' (length: {len(CHROMA_DATABASE)})")
+# ---------- Chroma Cloud client (v2 API) - Lazy Loading ----------
+# Global variables for lazy loading
+client = None
+collection = None
 
-# Try the provided database name first
-try:
-    client = chromadb.CloudClient(
-        tenant=CHROMA_TENANT,
-        database=CHROMA_DATABASE,
-        api_key=CHROMA_API_KEY
-    )
+def get_chroma_client():
+    """Lazy load ChromaDB client - only connects when first called"""
+    global client, collection
     
-    print("✓ Successfully connected to ChromaDB Cloud")
+    if client is not None:
+        return client, collection
     
-    collection = client.get_or_create_collection(CHROMA_COLLECTION)
-    print(f"✓ Collection '{CHROMA_COLLECTION}' ready")
+    import chromadb
     
-except chromadb.errors.ChromaAuthError as e:
-    print(f"✗ ChromaAuth Error: {e}")
-    print("\n🔍 Database name might be incorrect. Trying 'default'...")
+    print(f"Connecting to ChromaDB Cloud...")
+    print(f"Tenant: {CHROMA_TENANT}")
+    print(f"Database: '{CHROMA_DATABASE}'")
     
-    # Try 'default' as fallback
     try:
         client = chromadb.CloudClient(
             tenant=CHROMA_TENANT,
-            database='default',
+            database=CHROMA_DATABASE,
             api_key=CHROMA_API_KEY
         )
-        print("✓ Successfully connected with 'default' database")
-        print("⚠️  UPDATE YOUR .env FILE: CHROMA_DATABASE=default")
+        print("✓ Successfully connected to ChromaDB Cloud")
         
         collection = client.get_or_create_collection(CHROMA_COLLECTION)
         print(f"✓ Collection '{CHROMA_COLLECTION}' ready")
         
-    except Exception as e2:
-        print(f"✗ Failed with 'default' too: {e2}")
-        print("\nTroubleshooting steps:")
-        print("1. Visit https://app.trychroma.com/")
-        print("2. Navigate to your tenant and check the EXACT database name")
-        print("3. Update CHROMA_DATABASE in your .env file with that exact name")
-        print("4. Common names: 'default', 'Default', or other custom names")
-        raise
-
-except Exception as e:
-    print(f"✗ Failed to connect to ChromaDB Cloud: {e}")
-    print("\nTroubleshooting steps:")
-    print("1. Make sure chromadb is updated: pip install --upgrade chromadb")
-    print("2. Verify your API key is correct in the .env file")
-    print("3. Ensure your tenant and database IDs are correct")
-    print("4. Visit https://app.trychroma.com/ to verify your credentials")
-    raise
+    except Exception as e:
+        print(f"✗ ChromaDB connection error: {e}")
+        # Try 'default' fallback
+        try:
+            client = chromadb.CloudClient(
+                tenant=CHROMA_TENANT,
+                database='default',
+                api_key=CHROMA_API_KEY
+            )
+            print("✓ Connected with 'default' database")
+            collection = client.get_or_create_collection(CHROMA_COLLECTION)
+        except Exception as e2:
+            print(f"✗ Failed: {e2}")
+            raise
+    
+    return client, collection

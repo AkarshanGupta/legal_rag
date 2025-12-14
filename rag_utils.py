@@ -11,7 +11,7 @@ import google.generativeai as genai
 
 from rate_limiter import api_rate_limiter
 from embedding_cache import get_cached_embedding, cache_embedding
-from config import collection, groq_client, GROQ_MODEL_NAME, EMBED_MODEL_NAME
+from config import get_chroma_client, groq_client, GROQ_MODEL_NAME, EMBED_MODEL_NAME
 
 # Optional local embedding support (sentence-transformers)
 USE_LOCAL_EMBEDDINGS = os.getenv("USE_LOCAL_EMBEDDINGS", "false").lower() in ("1", "true", "yes")
@@ -174,6 +174,7 @@ def ensure_not_duplicate(doc_hash: str) -> bool:
     Returns True if we can insert (no existing doc with this hash).
     Returns False if duplicate exists.
     """
+    client, collection = get_chroma_client()
     try:
         existing = collection.get(where={"doc_hash": doc_hash}, limit=1)
         ids = existing.get("ids") or []
@@ -193,6 +194,7 @@ def ingest_document(
     Chunk + embed + store in Chroma Cloud.
     Uses doc_hash metadata so duplicates are not re-ingested.
     """
+    client, collection = get_chroma_client()
     if not full_text or not full_text.strip():
         raise ValueError("Document text is empty")
 
@@ -255,6 +257,7 @@ def retrieve_context(document_ids: List[str], question: str, k: int = 12) -> Lis
     """
     Retrieve top-k chunks from given document_ids.
     """
+    client, collection = get_chroma_client()
     if not document_ids:
         return []
 

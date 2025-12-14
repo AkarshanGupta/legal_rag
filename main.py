@@ -13,6 +13,11 @@ from config import ALLOWED_ORIGINS
 
 app = FastAPI(title="LegalEase RAG API (Modular)")
 
+@app.get("/")
+@app.get("/health")
+def health_check():
+    return {"status": "healthy", "service": "LegalEase RAG API"}
+
 # CORS – only allow origins from ALLOWED_ORIGINS
 app.add_middleware(
     CORSMiddleware,
