@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { FileText, Type, Copy, CheckCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { FileText, Type, Copy, CheckCircle, ArrowRight } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,6 +11,7 @@ import { useApp } from '@/context/AppContext';
 import { userUploadFile, userUploadText, getErrorMessage } from '@/services/api';
 
 const UploadPage: React.FC = () => {
+  const navigate = useNavigate();
   const { showToast, addDocument } = useApp();
   const [isLoading, setIsLoading] = useState(false);
   const [textInput, setTextInput] = useState('');
@@ -166,7 +168,7 @@ const UploadPage: React.FC = () => {
                   <p className="text-sm text-muted-foreground mb-3">
                     Your document ID has been generated. Use this ID to process your document.
                   </p>
-                  <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                  <div className="flex items-center gap-2 p-3 bg-muted rounded-lg mb-3">
                     <code className="flex-1 text-sm font-mono text-foreground truncate">
                       {uploadedDocId}
                     </code>
@@ -183,6 +185,13 @@ const UploadPage: React.FC = () => {
                       )}
                     </Button>
                   </div>
+                  <Button
+                    onClick={() => navigate('/process', { state: { documentId: uploadedDocId } })}
+                    className="w-full gap-2"
+                  >
+                    Process Document
+                    <ArrowRight className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
             </CardContent>

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { FileSearch, Wand2, FileText, AlertTriangle, List } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -47,11 +48,20 @@ const actions = [
 
 const ProcessPage: React.FC = () => {
   const { showToast } = useApp();
+  const location = useLocation();
   const [documentId, setDocumentId] = useState('');
   const [language, setLanguage] = useState('English');
   const [isLoading, setIsLoading] = useState(false);
   const [activeAction, setActiveAction] = useState<ActionType | null>(null);
   const [result, setResult] = useState<{ title: string; content: string } | null>(null);
+
+  // Pre-fill document ID if passed from upload page
+  useEffect(() => {
+    const state = location.state as { documentId?: string } | null;
+    if (state?.documentId) {
+      setDocumentId(state.documentId);
+    }
+  }, [location.state]);
 
   const handleProcess = async (actionType: ActionType) => {
     if (!documentId.trim()) {
