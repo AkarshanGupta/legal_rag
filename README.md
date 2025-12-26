@@ -174,8 +174,14 @@ legal_rag/
 
 ## Output
 
-
+# Before
 https://github.com/user-attachments/assets/be966d9d-eba7-4e23-b091-45efc4042931
+# After 
+
+
+https://github.com/user-attachments/assets/0236abf1-4f22-4e6d-9ce6-08585d52b0c0
+
+
 
 
 <img width="1919" height="386" alt="image" src="https://github.com/user-attachments/assets/632f072a-f05c-469f-89ad-82033dd42aec" />
