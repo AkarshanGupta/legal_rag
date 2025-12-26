@@ -26,3 +26,8 @@ class IngestResponse(BaseModel):
     document_id: str
     is_new: bool
     message: str
+
+class ChatRequest(BaseModel):
+    document_id: str
+    message: str
+    output_language: Optional[str] = "English"

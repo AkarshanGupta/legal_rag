@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Scale, Menu, X, Home, Upload, FileSearch, GitCompare, FolderOpen, Shield } from 'lucide-react';
+import { Scale, Menu, X, Home, Upload, FileSearch, GitCompare, FolderOpen, Shield, Moon, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useApp } from '@/context/AppContext';
 
 const userNavItems = [
   { path: '/', label: 'Home', icon: Home },
@@ -14,6 +15,7 @@ const userNavItems = [
 
 export const Navigation: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const { isDarkMode, toggleTheme } = useApp();
   const location = useLocation();
 
   const isActive = (path: string) => {
@@ -55,8 +57,20 @@ export const Navigation: React.FC = () => {
             })}
           </div>
 
-          {/* Admin Link */}
+          {/* Theme Toggle & Admin Link */}
           <div className="hidden md:flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleTheme}
+              title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {isDarkMode ? (
+                <Sun className="w-4 h-4" />
+              ) : (
+                <Moon className="w-4 h-4" />
+              )}
+            </Button>
             <Link to="/admin">
               <Button variant="outline" size="sm" className="gap-2">
                 <Shield className="w-4 h-4" />
@@ -66,14 +80,27 @@ export const Navigation: React.FC = () => {
           </div>
 
           {/* Mobile Menu Button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden"
-            onClick={() => setIsOpen(!isOpen)}
-          >
-            {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </Button>
+          <div className="md:hidden flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleTheme}
+              title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {isDarkMode ? (
+                <Sun className="w-4 h-4" />
+              ) : (
+                <Moon className="w-4 h-4" />
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsOpen(!isOpen)}
+            >
+              {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </Button>
+          </div>
         </div>
 
         {/* Mobile Navigation */}

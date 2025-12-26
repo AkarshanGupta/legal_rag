@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { StoredDocument, getUserDocuments, addUserDocument, removeUserDocument, getAdminToken, setAdminToken, removeAdminToken } from '@/utils/storage';
 
 interface Toast {
@@ -28,6 +28,10 @@ interface AppContextType {
   // Loading state
   isLoading: boolean;
   setIsLoading: (loading: boolean) => void;
+  
+  // Theme
+  isDarkMode: boolean;
+  toggleTheme: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -37,6 +41,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [userDocuments, setUserDocuments] = useState<StoredDocument[]>(getUserDocuments());
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    const stored = localStorage.getItem('theme');
+    if (stored) return stored === 'dark';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
+
+  // Apply theme to document
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+  }, [isDarkMode]);
 
   const loginAdmin = useCallback((token: string) => {
     setAdminToken(token);
@@ -74,6 +93,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
+  const toggleTheme = useCallback(() => {
+    setIsDarkMode(prev => !prev);
+  }, []);
+
   return (
     <AppContext.Provider
       value={{
@@ -90,6 +113,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         removeToast,
         isLoading,
         setIsLoading,
+        isDarkMode,
+        toggleTheme,
       }}
     >
       {children}

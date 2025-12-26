@@ -171,6 +171,19 @@ export const compareContracts = async (
   return response.data;
 };
 
+export const chatWithDocument = async (
+  documentId: string,
+  message: string,
+  outputLanguage: string = 'English'
+): Promise<ProcessingResponse> => {
+  const response = await apiClient.post<ProcessingResponse>('/chat', {
+    document_id: documentId,
+    message: message,
+    output_language: outputLanguage,
+  });
+  return response.data;
+};
+
 // Error handling helper
 export const getErrorMessage = (error: unknown): string => {
   if (axios.isAxiosError(error)) {
